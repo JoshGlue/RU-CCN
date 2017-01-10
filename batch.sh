@@ -7,4 +7,4 @@ module load cuda
 module load cuda/7.5.18
 module load python/2.7.9
 cd $HOME/Stock
-srun python DQN.py
+srun python Train.py
