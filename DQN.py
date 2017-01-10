@@ -25,7 +25,7 @@ env = Stock()
 # In[3]:
 
 # Atari Actions: 0 (noop), 1 (fire), 2 (left) and 3 (right) are valid actions
-VALID_ACTIONS = [0,1,0,0]
+VALID_ACTIONS = [0,1,-1]
 
 
 # In[4]:
@@ -52,11 +52,8 @@ class StateProcessor():
         return sess.run(self.output, { self.input_state: state })
 
 
-# In[5]:
-
 class Estimator():
     """Q-Value Estimator neural network.
-
     This network is used for both the Q-Network and the Target Network.
     """
 
@@ -126,13 +123,11 @@ class Estimator():
     def predict(self, sess, s):
         """
         Predicts action values.
-
         Args:
           sess: Tensorflow session
           s: State input of shape [batch_size, 4, 160, 160, 3]
-
         Returns:
-          Tensor of shape [batch_size, NUM_VALID_ACTIONS] containing the estimated 
+          Tensor of shape [batch_size, NUM_VALID_ACTIONS] containing the estimated
           action values.
         """
         return sess.run(self.predictions, { self.X_pl: s })
@@ -140,13 +135,11 @@ class Estimator():
     def update(self, sess, s, a, y):
         """
         Updates the estimator towards the given targets.
-
         Args:
           sess: Tensorflow session object
           s: State input of shape [batch_size, 4, 160, 160, 3]
           a: Chosen actions of shape [batch_size]
           y: Targets of shape [batch_size]
-
         Returns:
           The calculated loss on the batch.
         """
@@ -158,42 +151,9 @@ class Estimator():
             self.summary_writer.add_summary(summaries, global_step)
         return loss
 
-
-# In[6]:
-
-# For Testing....
-
-tf.reset_default_graph()
-global_step = tf.Variable(0, name="global_step", trainable=False)
-
-e = Estimator(scope="test")
-sp = StateProcessor()
-
-with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
-    
-    # Example observation batch
-    observation = env.reset()
-    
-    observation_p = sp.process(sess, observation)
-    observation = np.stack([observation_p] * 4, axis=2)
-    observations = np.array([observation] * 2)
-    
-    # Test Prediction
-    print(e.predict(sess, observations))
-
-    # Test training step
-    y = np.array([10.0, 10.0])
-    a = np.array([1, 3])
-    print(e.update(sess, observations, a, y))
-
-
-# In[7]:
-
 def copy_model_parameters(sess, estimator1, estimator2):
     """
     Copies the model parameters of one estimator to another.
-
     Args:
       sess: Tensorflow session instance
       estimator1: Estimator to copy the paramters from
@@ -212,20 +172,15 @@ def copy_model_parameters(sess, estimator1, estimator2):
     sess.run(update_ops)
 
 
-# In[8]:
-
 def make_epsilon_greedy_policy(estimator, nA):
     """
     Creates an epsilon-greedy policy based on a given Q-function approximator and epsilon.
-
     Args:
         estimator: An estimator that returns q values for a given state
         nA: Number of actions in the environment.
-
     Returns:
         A function that takes the (sess, observation, epsilon) as an argument and returns
         the probabilities for each action in the form of a numpy array of length nA.
-
     """
     def policy_fn(sess, observation, epsilon):
         A = np.ones(nA, dtype=float) * epsilon / nA
@@ -235,8 +190,6 @@ def make_epsilon_greedy_policy(estimator, nA):
         return A
     return policy_fn
 
-
-# In[ ]:
 
 def deep_q_learning(sess,
                     env,
@@ -257,7 +210,6 @@ def deep_q_learning(sess,
     """
     Q-Learning algorithm for fff-policy TD control using Function Approximation.
     Finds the optimal greedy policy while following an epsilon-greedy policy.
-
     Args:
         sess: Tensorflow Session object
         env: OpenAI environment
@@ -267,9 +219,9 @@ def deep_q_learning(sess,
         num_episodes: Number of episodes to run for
         experiment_dir: Directory to save Tensorflow summaries in
         replay_memory_size: Size of the replay memory
-        replay_memory_init_size: Number of random experiences to sampel when initializing 
+        replay_memory_init_size: Number of random experiences to sampel when initializing
           the reply memory.
-        update_target_estimator_every: Copy parameters from the Q estimator to the 
+        update_target_estimator_every: Copy parameters from the Q estimator to the
           target estimator every N steps
         discount_factor: Lambda time discount factor
         epsilon_start: Chance to sample a random action when taking an action.
@@ -278,7 +230,6 @@ def deep_q_learning(sess,
         epsilon_decay_steps: Number of steps to decay epsilon over
         batch_size: Size of batches to sample from the replay memory
         record_video_every: Record a video every N episodes
-
     Returns:
         An EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
     """
@@ -309,8 +260,7 @@ def deep_q_learning(sess,
     if latest_checkpoint:
         print("Loading model checkpoint {}...\n".format(latest_checkpoint))
         saver.restore(sess, latest_checkpoint)
-    
-    # Get the current time step
+
     total_t = sess.run(tf.contrib.framework.get_global_step())
 
     # The epsilon decay schedule
@@ -327,7 +277,7 @@ def deep_q_learning(sess,
     state = state_processor.process(sess, state)
     state = np.stack([state] * 4, axis=2)
     for i in range(replay_memory_init_size):
-        action_probs = policy(sess, state, epsilons[total_t])
+        action_probs = policy(sess, state, epsilons[min(total_t, epsilon_decay_steps-1)])
         action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
         next_state, reward, done, _ = env.step(VALID_ACTIONS[action])
         next_state = state_processor.process(sess, next_state)
@@ -340,10 +290,6 @@ def deep_q_learning(sess,
         else:
             state = next_state
 
-    # Record videos
-    #env.monitor.start(monitor_path,
-    #                  resume=True,
-    #                  video_callable=lambda count: count % record_video_every == 0)
 
     for i_episode in range(num_episodes):
 
@@ -359,8 +305,8 @@ def deep_q_learning(sess,
         # One step in the environment
         for t in itertools.count():
 
-
-            epsilon = 0.4
+            # Epsilon for this time step
+            epsilon = epsilons[min(total_t, epsilon_decay_steps-1)]
 
             # Add epsilon to Tensorboard
             episode_summary = tf.Summary()
@@ -374,7 +320,7 @@ def deep_q_learning(sess,
 
             # Print out which step we're on, useful for debugging.
             print("\rStep {} ({}) @ Episode {}/{}, loss: {}, Epsilon: {}".format(
-                    t, total_t, i_episode + 1, num_episodes, loss, epsilon))
+                    t, total_t, i_episode + 1, num_episodes, loss, epsilon), end="")
             sys.stdout.flush()
 
             # Take a step
@@ -389,7 +335,7 @@ def deep_q_learning(sess,
                 replay_memory.pop(0)
 
             # Save transition to replay memory
-            replay_memory.append(Transition(state, action, reward, next_state, done))   
+            replay_memory.append(Transition(state, action, reward, next_state, done))
 
             # Update statistics
             stats.episode_rewards[i_episode] += reward
@@ -399,9 +345,12 @@ def deep_q_learning(sess,
             samples = random.sample(replay_memory, batch_size)
             states_batch, action_batch, reward_batch, next_states_batch, done_batch = map(np.array, zip(*samples))
 
-            # Calculate q values and targets
-            q_values_next = target_estimator.predict(sess, next_states_batch)
-            targets_batch = reward_batch + np.invert(done_batch).astype(np.float32) * discount_factor * np.amax(q_values_next, axis=1)
+            # Calculate q values and targets (Double DQN)
+            q_values_next = q_estimator.predict(sess, next_states_batch)
+            best_actions = np.argmax(q_values_next, axis=1)
+            q_values_next_target = target_estimator.predict(sess, next_states_batch)
+            targets_batch = reward_batch + np.invert(done_batch).astype(np.float32) * \
+                discount_factor * q_values_next_target[np.arange(batch_size), best_actions]
 
             # Perform gradient descent update
             states_batch = np.array(states_batch)
@@ -424,44 +373,4 @@ def deep_q_learning(sess,
             episode_lengths=stats.episode_lengths[:i_episode+1],
             episode_rewards=stats.episode_rewards[:i_episode+1])
 
-    #env.monitor.close()
-
-
-# In[ ]:
-
-tf.reset_default_graph()
-
-# Where we save our checkpoints and graphs
-experiment_dir = os.path.abspath("./experiments/{}".format(env.spec.id))
-
-# Create a glboal step variable
-global_step = tf.Variable(0, name='global_step', trainable=False)
-    
-# Create estimators
-q_estimator = Estimator(scope="q", summaries_dir=experiment_dir)
-target_estimator = Estimator(scope="target_q")
-
-# State processor
-state_processor = StateProcessor()
-
-# Run it!
-with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
-    for t, stats in deep_q_learning(sess,
-                                    env,
-                                    q_estimator=q_estimator,
-                                    target_estimator=target_estimator,
-                                    state_processor=state_processor,
-                                    experiment_dir=experiment_dir,
-                                    num_episodes=1000000,
-                                    replay_memory_size=500000,
-                                    replay_memory_init_size=50000,
-                                    update_target_estimator_every=10000,
-                                    epsilon_start=1.0,
-                                    epsilon_end=0.1,
-                                    epsilon_decay_steps=100000,
-                                    discount_factor=0.999,
-                                    batch_size=32):
-
-        print("\nEpisode Reward: {}".format(stats.episode_rewards[-1]))
-
+    return stats

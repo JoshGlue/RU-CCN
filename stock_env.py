@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import date
 import numpy as np
-from enum import Enum
 import csv
 import requests
 import random
@@ -9,10 +8,13 @@ import os.path
 import pickle
 import math
 import tensorflow as tf
-download_path = 'pickle'
+download_path = '../pickle'
+import matplotlib.pyplot as plt
 
 
 class Stock:
+
+    VALID_ACTIONS = [0, 1, -1]
 
     def __init__(self):
         self.profit = 0
@@ -51,7 +53,7 @@ class Stock:
         if result >= 10:
             result = 10
         max = 399
-        steps =   float(10) / max
+        steps = float(10) / max
 
         result = round(result / steps)
 
@@ -67,6 +69,11 @@ class Stock:
         environment = np.zeros(shape=(2, 2, 2, 2, 400), dtype=np.uint8)
         environment[int(self.bought),index2 ,index3 , 0, result] = 1
         environment[int(self.bought), index2, index3, 1, marginresult] = 1
+        reshape = np.reshape(environment, [80,80])
+
+       # plt.imshow(reshape)
+       # plt.show()
+
         return environment
 
 
@@ -100,13 +107,20 @@ class Stock:
         done = False
         state = self.my_list[self.index]
         close = state[6]
+
+        #Stock is not profitable, so exit
+        if not self.bought and action == -1:
+            done = True
+
+        #Sell Stock
         if self.bought and action == 1:
             done = True
             reward = ((((float(close) / (float(self.boughtStock) + 0.01))) * self.boughtPrice) - self.boughtPrice) * 100
             if profit:
                 self.profit += reward
-                print(self.profit)
-
+                self.count += 1
+                print("Profit:", self.profit/self.count)
+        #Buy Stock
         if not self.bought and action == 1:
             self.boughtStock = float(close)
             self.bought = True
@@ -122,6 +136,8 @@ class Stock:
         next_state =  self.getState()
 
         _ = None
+
+
 
         return [next_state, reward, done, _]
 
@@ -146,7 +162,6 @@ class Stock:
 
 
     def reset(self):
-        print(self.profit)
 
 
         self.bought = False
@@ -158,7 +173,3 @@ class Stock:
 
 
         return environment
-
-
-
-Stock()

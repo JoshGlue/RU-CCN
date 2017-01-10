@@ -360,7 +360,7 @@ def deep_q_learning(sess,
 
             # Print out which step we're on, useful for debugging.
             print("\rStep {} ({}) @ Episode {}/{}, loss: {}, epsilon: {}".format(
-                t, total_t, i_episode + 1, num_episodes, loss, epsilon), end="")
+                t, total_t, i_episode + 1, num_episodes, loss, epsilon))
             sys.stdout.flush()
 
             # Take a step
@@ -417,7 +417,7 @@ def deep_q_learning(sess,
             episode_rewards=stats.episode_rewards[:i_episode + 1])
 
     # env.monitor.close()
-    return stats
+
 
 
 # In[10]:
