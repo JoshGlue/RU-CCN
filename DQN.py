@@ -18,21 +18,18 @@ from lib import plotting
 from collections import deque, namedtuple
 from stock_env import Stock
 
-# In[2]:
 
 env = Stock()
 
-# In[3]:
 
-# Atari Actions: 0 (noop), 1 (fire), 2 (left) and 3 (right) are valid actions
+# All Valid actions
 VALID_ACTIONS = [0,1,-1]
 
 
-# In[4]:
 
 class StateProcessor():
     """
-    Processes a raw Atari iamges. Resizes it and converts it to grayscale.
+    Gets the state of the stock and converts it to a 80x80 Matrix
     """
     def __init__(self):
         # Build the Tensorflow graph
@@ -41,14 +38,7 @@ class StateProcessor():
             self.output = tf.squeeze(tf.reshape(self.input_state, [80, 80]))
 
     def process(self, sess, state):
-        """
-        Args:
-            sess: A Tensorflow session object
-            state: A [210, 160, 3] Atari RGB State
 
-        Returns:
-            A processed [84, 84, 1] state representing grayscale values.
-        """
         return sess.run(self.output, { self.input_state: state })
 
 
@@ -76,7 +66,7 @@ class Estimator():
         """
 
         # Placeholders for our input
-        # Our input are 4 RGB frames of shape 160, 160 each
+        # 80x80 input matrix
         self.X_pl = tf.placeholder(shape=[None, 80, 80, 4], dtype=tf.uint8, name="X")
         # The TD target value
         self.y_pl = tf.placeholder(shape=[None], dtype=tf.float32, name="y")
